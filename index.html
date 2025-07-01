@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌧️ Vinoř Weather - Kompletní přehled</title>
+    <title>🌧️ Kbely Weather - Kompletní přehled</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -225,6 +225,80 @@
         .day-weather .temp { color: #f59e0b; background: rgba(254, 240, 138, 0.3); }
         .day-weather .cloud { color: #3b82f6; background: rgba(219, 234, 254, 0.4); }
         .day-weather .sun { color: #ea580c; background: rgba(254, 215, 170, 0.4); }
+        
+        .watering-controls {
+            margin-top: 12px;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 8px;
+            border: 2px solid rgba(34, 197, 94, 0.2);
+        }
+        .watering-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #064e3b;
+            margin-bottom: 6px;
+            text-align: center;
+        }
+        .watering-buttons {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+        .watering-btn {
+            padding: 6px 12px;
+            border: 2px solid;
+            border-radius: 20px;
+            background: white;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+        .watering-btn.yes {
+            border-color: #22c55e;
+            color: #166534;
+        }
+        .watering-btn.yes.active {
+            background: #22c55e;
+            color: white;
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4);
+        }
+        .watering-btn.no {
+            border-color: #ef4444;
+            color: #991b1b;
+        }
+        .watering-btn.no.active {
+            background: #ef4444;
+            color: white;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+        }
+        .plant-status {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 0.9rem;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+        .plant-healthy { 
+            background: linear-gradient(135deg, rgba(187, 247, 208, 0.8), rgba(220, 252, 231, 0.6));
+            color: #166534;
+        }
+        .plant-thirsty { 
+            background: linear-gradient(135deg, rgba(254, 240, 138, 0.8), rgba(253, 230, 138, 0.6));
+            color: #92400e;
+        }
+        .plant-wilting { 
+            background: linear-gradient(135deg, rgba(254, 226, 226, 0.8), rgba(254, 202, 202, 0.6));
+            color: #991b1b;
+        }
+        .plant-dying { 
+            background: linear-gradient(135deg, rgba(127, 29, 29, 0.8), rgba(153, 27, 27, 0.6));
+            color: white;
+            animation: pulse 2s infinite;
+        }
         .advice-section {
             background: linear-gradient(135deg, rgba(187, 247, 208, 0.6), rgba(220, 252, 231, 0.4));
             border: 3px solid rgba(34, 197, 94, 0.3);
@@ -431,8 +505,8 @@
         
         <!-- Header -->
         <div class="card">
-            <h1>🌦️ Vinoř Weather</h1>
-            <p class="subtitle">Kompletní přehled počasí a srážek</p>
+            <h1>🌦️ Kbely Weather</h1>
+            <p class="subtitle">Kompletní přehled počasí a srážek - Letiště Praha Kbely</p>
             <div style="text-align: center; margin-top: 20px;">
                 <span class="data-source-badge badge-visual-crossing">🌊 Visual Crossing API</span>
             </div>
@@ -448,7 +522,7 @@
             
             <div style="margin-bottom: 24px;">
                 <input type="password" id="visualCrossingKey" placeholder="ALP6PEQUNTK5UF3RJ7JPLVRD8">
-                <input type="text" id="location" value="Vinoř, Praha" placeholder="📍 Lokalita">
+                <input type="text" id="location" value="Letiště Praha Kbely" placeholder="📍 Lokalita">
             </div>
             
             <div id="apiStatus"></div>
@@ -470,7 +544,7 @@
         <!-- Current Weather -->
         <div class="card">
             <h3 style="margin-bottom: 24px; color: #064e3b; font-size: 1.6rem; text-align: center;">
-                🌤️ Aktuální počasí - <span id="currentLocation">Vinoř, Praha</span>
+                🌤️ Aktuální počasí - <span id="currentLocation">Letiště Praha Kbely</span>
             </h3>
             
             <div class="current-weather">
@@ -542,16 +616,17 @@
 
     <script>
         // Globální proměnné
-        let visualCrossingKey = localStorage.getItem('vinor_visualcrossing_api') || '';
+        let visualCrossingKey = localStorage.getItem('kbely_visualcrossing_api') || '';
         let isLiveMode = false;
         let updateInterval = null;
+        let wateringData = JSON.parse(localStorage.getItem('kbely_watering_data') || '{}');
         
-        // Souřadnice Vinoře, Praha
-        const VINOR_COORDS = { lat: 50.1569, lon: 14.6314 };
+        // Souřadnice Letiště Praha Kbely
+        const KBELY_COORDS = { lat: 50.1219, lon: 14.5436 };
         
         let weatherData = {
-            location: 'Vinoř, Praha',
-            coordinates: VINOR_COORDS,
+            location: 'Letiště Praha Kbely',
+            coordinates: KBELY_COORDS,
             current: {
                 precip: 2.3,
                 temp: 18.5,
@@ -680,7 +755,7 @@
             
             // Uložíme klíč do localStorage
             visualCrossingKey = newVisualCrossingKey;
-            localStorage.setItem('vinor_visualcrossing_api', visualCrossingKey);
+            localStorage.setItem('kbely_visualcrossing_api', visualCrossingKey);
             console.log('✅ Visual Crossing API klíč uložen do localStorage');
             
             statusDiv.innerHTML = '<div class="success-msg">✅ API klíč uložen! Načítám kompletní data...</div>';
@@ -784,6 +859,68 @@
             console.log('✅ Demo data vygenerována:', weatherData);
         }
 
+        // Funkce pro sledování zálivky
+        function toggleWatering(date, watered) {
+            console.log('Toggling watering for date:', date, 'watered:', watered);
+            if (watered) {
+                wateringData[date] = new Date().toISOString();
+            } else {
+                delete wateringData[date];
+            }
+            localStorage.setItem('kbely_watering_data', JSON.stringify(wateringData));
+            updateWeeklyDisplay(); // Refresh display
+        }
+
+        function getPlantStatus(date, precipitation) {
+            const dateObj = new Date(date + 'T12:00:00');
+            const today = new Date();
+            const daysAgo = Math.floor((today - dateObj) / (1000 * 60 * 60 * 24));
+            
+            // Pokud je to budoucí datum, nezobrazit stav
+            if (daysAgo < 0) return { status: '', icon: '', text: '' };
+            
+            let lastWaterDay = -1;
+            let lastRainDay = -1;
+            
+            // Najdi poslední den zálivky
+            for (let i = 0; i <= daysAgo; i++) {
+                const checkDate = new Date(today - i * 24 * 60 * 60 * 1000);
+                const checkDateStr = checkDate.toISOString().split('T')[0];
+                
+                if (wateringData[checkDateStr]) {
+                    lastWaterDay = i;
+                    break;
+                }
+            }
+            
+            // Zkontroluj déšť z týdenních dat
+            for (const day of weatherData.weekly) {
+                const dayDate = new Date();
+                const dateParts = day.date.split('.');
+                dayDate.setDate(parseInt(dateParts[0]));
+                dayDate.setMonth(parseInt(dateParts[1]) - 1);
+                
+                const daysDiff = Math.floor((today - dayDate) / (1000 * 60 * 60 * 24));
+                if (daysDiff >= 0 && parseFloat(day.rain) > 2) { // Více než 2mm deště
+                    if (lastRainDay === -1 || daysDiff < lastRainDay) {
+                        lastRainDay = daysDiff;
+                    }
+                }
+            }
+            
+            const daysSinceWater = Math.min(lastWaterDay === -1 ? 999 : lastWaterDay, lastRainDay === -1 ? 999 : lastRainDay);
+            
+            if (daysSinceWater <= 1) {
+                return { status: 'plant-healthy', icon: '🌱', text: 'Zdravá rostlina' };
+            } else if (daysSinceWater <= 3) {
+                return { status: 'plant-thirsty', icon: '🌿', text: 'Potřebuje vodu' };
+            } else if (daysSinceWater <= 5) {
+                return { status: 'plant-wilting', icon: '🥀', text: 'Vadne!' };
+            } else {
+                return { status: 'plant-dying', icon: '💀', text: 'Kritický stav!' };
+            }
+        }
+
         // Zobrazení dat v UI
         function displayWeatherData() {
             console.log('🎨 Zobrazuji kompletní data v uživatelském rozhraní...');
@@ -851,6 +988,15 @@
                 
                 const todayIndicator = (index === weatherData.weekly.length - 1) ? ' 📍' : '';
                 
+                // Vytvoř datum pro kontrolu zálivky
+                const dateForWatering = new Date();
+                dateForWatering.setDate(dateForWatering.getDate() - (weatherData.weekly.length - 1 - index));
+                const wateringDateStr = dateForWatering.toISOString().split('T')[0];
+                
+                // Zkontroluj stav zálivky
+                const isWatered = wateringData[wateringDateStr];
+                const plantStatus = getPlantStatus(wateringDateStr, parseFloat(item.rain));
+                
                 div.innerHTML = `
                     <div class="day-name">${item.day}${todayIndicator}</div>
                     <div class="day-date">${item.date}</div>
@@ -860,6 +1006,18 @@
                         <div class="item cloud">☁️ ${item.cloud}%</div>
                         <div class="item sun">☀️ ${item.solar} W/m²</div>
                     </div>
+                    <div class="watering-controls">
+                        <div class="watering-label">🚿 Zálivka</div>
+                        <div class="watering-buttons">
+                            <button class="watering-btn yes ${isWatered ? 'active' : ''}" 
+                                    onclick="toggleWatering('${wateringDateStr}', true)">ANO</button>
+                            <button class="watering-btn no ${!isWatered ? 'active' : ''}" 
+                                    onclick="toggleWatering('${wateringDateStr}', false)">NE</button>
+                        </div>
+                    </div>
+                    ${plantStatus.status ? `<div class="plant-status ${plantStatus.status}">
+                        ${plantStatus.icon} ${plantStatus.text}
+                    </div>` : ''}
                 `;
                 
                 container.appendChild(div);
@@ -880,7 +1038,7 @@
         }
 
         function shareWeatherInfo() {
-            const shareText = `🌦️ Kompletní počasí ve Vinoří - ${new Date().toLocaleDateString('cs-CZ')}
+            const shareText = `🌦️ Kompletní počasí na Letišti Praha Kbely - ${new Date().toLocaleDateString('cs-CZ')}
 
 🏠 Lokalita: ${weatherData.location}
 🌧️ Aktuální srážky: ${weatherData.current.precip} mm/h
@@ -899,14 +1057,14 @@ ${weatherData.weekly.map((d, i) =>
 
 🌱 Doporučení: ${document.getElementById('adviceText').textContent}
 
-📱 Sdíleno aplikací Vinoř Weather
+📱 Sdíleno aplikací Kbely Weather
 🌊 S využitím Visual Crossing Weather API`;
 
             console.log('📤 Sdílím kompletní informace o počasí:', shareText);
             
             if (navigator.share) {
                 navigator.share({
-                    title: '🌦️ Kompletní počasí ve Vinoří',
+                    title: '🌦️ Kompletní počasí na Letišti Praha Kbely',
                     text: shareText
                 }).then(() => {
                     console.log('✅ Úspěšně sdíleno přes Web Share API');
@@ -979,9 +1137,9 @@ ${weatherData.weekly.map((d, i) =>
 
         // Inicializace aplikace
         window.addEventListener('load', () => {
-            console.log('🚀 Vinoř Weather aplikace se spouští - kompletní verze s Visual Crossing');
+            console.log('🚀 Kbely Weather aplikace se spouští - kompletní verze s Visual Crossing');
             console.log('📱 Verze: Srážky + Teploty + Oblačnost + Sluneční svit');
-            console.log('🌍 Lokalita: Vinoř, Praha');
+            console.log('🌍 Lokalita: Letiště Praha Kbely');
             
             // Načteme uložený API klíč
             if (visualCrossingKey) {
@@ -1001,7 +1159,7 @@ ${weatherData.weekly.map((d, i) =>
 
         // Zachytíme změny API klíče pro restart auto-update
         window.addEventListener('storage', (e) => {
-            if (e.key === 'vinor_visualcrossing_api') {
+            if (e.key === 'kbely_visualcrossing_api') {
                 console.log('🔄 Visual Crossing API klíč změněn v jiné záložce, aktualizuji...');
                 visualCrossingKey = e.newValue || '';
                 setupAutoUpdate();
