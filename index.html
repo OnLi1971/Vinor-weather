@@ -274,31 +274,7 @@
             color: white;
             box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
         }
-        .plant-status {
-            text-align: center;
-            margin-top: 8px;
-            font-size: 0.9rem;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-weight: 600;
-        }
-        .plant-healthy { 
-            background: linear-gradient(135deg, rgba(187, 247, 208, 0.8), rgba(220, 252, 231, 0.6));
-            color: #166534;
-        }
-        .plant-thirsty { 
-            background: linear-gradient(135deg, rgba(254, 240, 138, 0.8), rgba(253, 230, 138, 0.6));
-            color: #92400e;
-        }
-        .plant-wilting { 
-            background: linear-gradient(135deg, rgba(254, 226, 226, 0.8), rgba(254, 202, 202, 0.6));
-            color: #991b1b;
-        }
-        .plant-dying { 
-            background: linear-gradient(135deg, rgba(127, 29, 29, 0.8), rgba(153, 27, 27, 0.6));
-            color: white;
-            animation: pulse 2s infinite;
-        }
+
         .advice-section {
             background: linear-gradient(135deg, rgba(187, 247, 208, 0.6), rgba(220, 252, 231, 0.4));
             border: 3px solid rgba(34, 197, 94, 0.3);
@@ -638,36 +614,94 @@
             source: 'demo'
         };
 
+        // Visual Crossing API pro aktuální počasí
+        async function fetchCurrentWeather() {
+            try {
+                console.log('🌤️ Načítám aktuální počasí z Visual Crossing API...');
+                
+                // Aktuální počasí - bez specifikace data znamená "teď"
+                const currentUrl = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${KBELY_COORDS.lat},${KBELY_COORDS.lon}?unitGroup=metric&elements=precip,temp,cloudcover,solarradiation&include=current&key=${visualCrossingKey}`;
+                
+                console.log('🌐 Visual Crossing aktuální počasí URL vytvořeno');
+                
+                const response = await fetch(currentUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`Visual Crossing current API error: ${response.status} - ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('✅ Visual Crossing aktuální počasí načteno:', data);
+                
+                // Extrahuje aktuální počasí
+                const current = data.currentConditions || data.days[0] || {};
+                return {
+                    precip: current.precip || 0,
+                    temp: current.temp || 0,
+                    cloudcover: current.cloudcover || 0,
+                    solarradiation: current.solarradiation || 0
+                };
+                
+            } catch (error) {
+                console.error('❌ Chyba při načítání aktuálního počasí:', error);
+                return null;
+            }
+        }
+
+        // Visual Crossing API pro historická data
+        async function fetchHistoricalData() {
+            try {
+                console.log('📊 Načítám historická data z Visual Crossing API...');
+                
+                const today = new Date();
+                const endDate = new Date(today);
+                endDate.setDate(endDate.getDate() - 1); // Končí včera
+                const startDate = new Date(today);
+                startDate.setDate(startDate.getDate() - 7); // 7 dní historie
+                
+                const startStr = startDate.toISOString().split('T')[0];
+                const endStr = endDate.toISOString().split('T')[0];
+                
+                console.log(`📅 Historické období: ${startStr} až ${endStr}`);
+                
+                // Získáme historická data včetně teplot, oblačnosti a slunečního svitu - PŘESNÉ SOUŘADNICE KBELY
+                const url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${KBELY_COORDS.lat},${KBELY_COORDS.lon}/${startStr}/${endStr}?unitGroup=metric&elements=precip,temp,tempmax,tempmin,cloudcover,solarradiation,solarenergy&include=days&key=${visualCrossingKey}`;
+                
+                console.log('🌐 Visual Crossing historická URL vytvořena');
+                
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`Visual Crossing historical API error: ${response.status} - ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('✅ Visual Crossing historická data načtena:', data);
+                
+                return data;
+                
+            } catch (error) {
+                console.error('❌ Chyba při načítání historických dat:', error);
+                return null;
+            }
+        }
+
         // Visual Crossing API pro kompletní data
         async function fetchVisualCrossingData() {
             try {
                 console.log('🌊 Načítám kompletní data z Visual Crossing API...');
                 
-                const today = new Date();
-                const endDate = new Date(today);
-                const startDate = new Date(today);
-                startDate.setDate(startDate.getDate() - 6); // 7 dní historie
+                // Paralelně načteme aktuální i historická data
+                const [currentWeather, historicalData] = await Promise.all([
+                    fetchCurrentWeather(),
+                    fetchHistoricalData()
+                ]);
                 
-                const startStr = startDate.toISOString().split('T')[0];
-                const endStr = endDate.toISOString().split('T')[0];
-                
-                console.log(`📅 Období: ${startStr} až ${endStr}`);
-                
-                // Získáme kompletní data včetně teplot, oblačnosti a slunečního svitu
-                const url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/Prague,CZ/${startStr}/${endStr}?unitGroup=metric&elements=precip,temp,tempmax,tempmin,cloudcover,solarradiation,solarenergy&include=days&key=${visualCrossingKey}`;
-                
-                console.log('🌐 Visual Crossing URL vytvořeno');
-                
-                const response = await fetch(url);
-                
-                if (!response.ok) {
-                    throw new Error(`Visual Crossing API error: ${response.status} - ${response.statusText}`);
+                if (!historicalData) {
+                    throw new Error('Nepodařilo se načíst historická data');
                 }
                 
-                const data = await response.json();
-                console.log('✅ Visual Crossing kompletní data načtena:', data);
-                
-                return processVisualCrossingData(data);
+                return processVisualCrossingData(historicalData, currentWeather);
                 
             } catch (error) {
                 console.error('❌ Chyba při načítání z Visual Crossing:', error);
@@ -676,31 +710,39 @@
         }
         
         // Zpracování dat z Visual Crossing
-        function processVisualCrossingData(data) {
+        function processVisualCrossingData(historicalData, currentWeather = null) {
             console.log('🔄 Zpracovávám Visual Crossing kompletní data...');
             
-            if (!data.days || data.days.length === 0) {
+            if (!historicalData.days || historicalData.days.length === 0) {
                 console.warn('⚠️ Visual Crossing data neobsahují denní data');
                 return null;
             }
             
-            const dailyData = data.days;
-            console.log(`📊 Načteno ${dailyData.length} denních záznamů`);
+            const dailyData = historicalData.days;
+            console.log(`📊 Načteno ${dailyData.length} historických záznamů`);
             
-            // Aktuální počasí (nejnovější den)
-            const latestDay = dailyData[dailyData.length - 1];
-            const current = {
-                precip: latestDay.precip || 0,
-                temp: latestDay.temp || 0,
-                cloudcover: latestDay.cloudcover || 0,
-                solarradiation: latestDay.solarradiation || 0
-            };
+            // Aktuální počasí - použij skutečné aktuální data pokud jsou dostupná, jinak historická
+            let current;
+            if (currentWeather) {
+                console.log('✅ Používám skutečné aktuální počasí:', currentWeather);
+                current = currentWeather;
+            } else {
+                console.log('⚠️ Používám historická data jako aktuální počasí');
+                const latestDay = dailyData[dailyData.length - 1];
+                current = {
+                    precip: latestDay.precip || 0,
+                    temp: latestDay.temp || 0,
+                    cloudcover: latestDay.cloudcover || 0,
+                    solarradiation: latestDay.solarradiation || 0
+                };
+            }
             
             // Vytvoříme týdenní přehled
             const weekly = [];
             const dayNames = ['Neděle', 'Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota'];
             let total7days = 0;
             
+            // Přidáme historická data
             dailyData.forEach((day, index) => {
                 // Robustní parsování data
                 let date;
@@ -712,7 +754,7 @@
                 
                 if (isNaN(date.getTime())) {
                     date = new Date();
-                    date.setDate(date.getDate() - (6 - index));
+                    date.setDate(date.getDate() - (7 - index)); // Upraveno pro správné historické dny
                 }
                 
                 const dayRain = day.precip || 0;
@@ -730,8 +772,30 @@
                 });
             });
             
+            // Přidáme dnešní den s aktuálními daty
+            if (currentWeather) {
+                const today = new Date();
+                const todayRain = current.precip || 0;
+                total7days += todayRain;
+                
+                weekly.push({
+                    day: dayNames[today.getDay()],
+                    date: today.toLocaleDateString('cs-CZ', { day: '2-digit', month: '2-digit' }),
+                    rain: todayRain.toFixed(1),
+                    temp: current.temp.toFixed(1),
+                    tempMax: current.temp.toFixed(1), // Pro aktuální počasí používáme aktuální teplotu
+                    tempMin: current.temp.toFixed(1),
+                    cloud: Math.round(current.cloudcover || 0),
+                    solar: Math.round(current.solarradiation || 0)
+                });
+                
+                console.log('✅ Dnešní den přidán s aktuálními daty');
+            }
+            
             console.log('✅ Visual Crossing kompletní data zpracována');
             console.log(`📊 Týdenní celkem srážek: ${total7days.toFixed(1)} mm`);
+            console.log('🌡️ Aktuální počasí:', current);
+            console.log('📅 Týdenní data:', weekly);
             
             return {
                 current: current,
@@ -775,7 +839,7 @@
             if (!visualCrossingKey) {
                 console.log('📱 Režim bez API klíče - zobrazuji demo data');
                 
-                statusDiv.innerHTML = '<div class="demo-mode">📱 Demo režim - pro skutečná data zadejte Visual Crossing API klíč</div>';
+                statusDiv.innerHTML = `<div class="demo-mode">📱 Demo režim pro Kbely (${KBELY_COORDS.lat}, ${KBELY_COORDS.lon}) - pro skutečná data zadejte Visual Crossing API klíč</div>`;
                 demoAlert.classList.remove('hidden');
                 isLiveMode = false;
                 
@@ -806,7 +870,7 @@
                 
             } catch (error) {
                 console.error('❌ Chyba při načítání z Visual Crossing API:', error.message);
-                statusDiv.innerHTML = `<div class="error-msg">❌ Visual Crossing chyba: ${error.message}<br><small>Zobrazuji demo data jako zálohu</small></div>`;
+                statusDiv.innerHTML = `<div class="error-msg">❌ Visual Crossing chyba (Kbely ${KBELY_COORDS.lat}, ${KBELY_COORDS.lon}): ${error.message}<br><small>Zobrazuji demo data jako zálohu</small></div>`;
                 
                 // Fallback na demo data při chybě
                 isLiveMode = false;
@@ -871,55 +935,7 @@
             updateWeeklyDisplay(); // Refresh display
         }
 
-        function getPlantStatus(date, precipitation) {
-            const dateObj = new Date(date + 'T12:00:00');
-            const today = new Date();
-            const daysAgo = Math.floor((today - dateObj) / (1000 * 60 * 60 * 24));
-            
-            // Pokud je to budoucí datum, nezobrazit stav
-            if (daysAgo < 0) return { status: '', icon: '', text: '' };
-            
-            let lastWaterDay = -1;
-            let lastRainDay = -1;
-            
-            // Najdi poslední den zálivky
-            for (let i = 0; i <= daysAgo; i++) {
-                const checkDate = new Date(today - i * 24 * 60 * 60 * 1000);
-                const checkDateStr = checkDate.toISOString().split('T')[0];
-                
-                if (wateringData[checkDateStr]) {
-                    lastWaterDay = i;
-                    break;
-                }
-            }
-            
-            // Zkontroluj déšť z týdenních dat
-            for (const day of weatherData.weekly) {
-                const dayDate = new Date();
-                const dateParts = day.date.split('.');
-                dayDate.setDate(parseInt(dateParts[0]));
-                dayDate.setMonth(parseInt(dateParts[1]) - 1);
-                
-                const daysDiff = Math.floor((today - dayDate) / (1000 * 60 * 60 * 24));
-                if (daysDiff >= 0 && parseFloat(day.rain) > 2) { // Více než 2mm deště
-                    if (lastRainDay === -1 || daysDiff < lastRainDay) {
-                        lastRainDay = daysDiff;
-                    }
-                }
-            }
-            
-            const daysSinceWater = Math.min(lastWaterDay === -1 ? 999 : lastWaterDay, lastRainDay === -1 ? 999 : lastRainDay);
-            
-            if (daysSinceWater <= 1) {
-                return { status: 'plant-healthy', icon: '🌱', text: 'Zdravá rostlina' };
-            } else if (daysSinceWater <= 3) {
-                return { status: 'plant-thirsty', icon: '🌿', text: 'Potřebuje vodu' };
-            } else if (daysSinceWater <= 5) {
-                return { status: 'plant-wilting', icon: '🥀', text: 'Vadne!' };
-            } else {
-                return { status: 'plant-dying', icon: '💀', text: 'Kritický stav!' };
-            }
-        }
+
 
         // Zobrazení dat v UI
         function displayWeatherData() {
@@ -937,7 +953,7 @@
             
             // Aktualizujeme status
             const statusText = isLiveMode ? 
-                '✅ Skutečná data z Visual Crossing načtena' : 
+                `✅ Skutečná data z Visual Crossing načtena - Kbely (${KBELY_COORDS.lat}, ${KBELY_COORDS.lon})` : 
                 '⚠️ Demo režim - zadejte API klíč pro skutečná data';
             document.getElementById('visualCrossingStatus').innerHTML = statusText;
             
@@ -995,7 +1011,6 @@
                 
                 // Zkontroluj stav zálivky
                 const isWatered = wateringData[wateringDateStr];
-                const plantStatus = getPlantStatus(wateringDateStr, parseFloat(item.rain));
                 
                 div.innerHTML = `
                     <div class="day-name">${item.day}${todayIndicator}</div>
@@ -1015,9 +1030,6 @@
                                     onclick="toggleWatering('${wateringDateStr}', false)">NE</button>
                         </div>
                     </div>
-                    ${plantStatus.status ? `<div class="plant-status ${plantStatus.status}">
-                        ${plantStatus.icon} ${plantStatus.text}
-                    </div>` : ''}
                 `;
                 
                 container.appendChild(div);
